@@ -28,7 +28,7 @@ export class GoogleCloudBillingOAuth2Api implements ICredentialType {
 			displayName: 'Scope',
 			name: 'scope',
 			type: 'hidden',
-			default: 'https://www.googleapis.com/auth/cloud-billing.readonly https://www.googleapis.com/auth/cloud-platform.read-only',
+			default: 'https://www.googleapis.com/auth/cloud-billing https://www.googleapis.com/auth/cloud-platform',
 		},
 		{
 			displayName: 'Auth URI Query Parameters',

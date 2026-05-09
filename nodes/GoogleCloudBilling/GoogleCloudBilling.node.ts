@@ -278,7 +278,10 @@ export class GoogleCloudBilling implements INodeType {
 					}
 				} else if (resource === 'project') {
 					if (operation === 'getBillingInfo') {
-						const projectId = this.getNodeParameter('projectId', i) as string;
+						let projectId = this.getNodeParameter('projectId', i) as string;
+						// Sanitize project ID (remove 'projects/' prefix if present)
+						projectId = projectId.startsWith('projects/') ? projectId.split('/')[1] : projectId;
+
 						const endpoint = `projects/${projectId}/billingInfo`;
 						const responseData = await googleApiRequest.call(this, 'GET', endpoint);
 						returnData.push({ json: responseData as IDataObject, pairedItem: { item: i } });
@@ -297,7 +300,10 @@ export class GoogleCloudBilling implements INodeType {
 						}
 						returnData.push(...executionData);
 					} else if (operation === 'updateBillingInfo') {
-						const projectId = this.getNodeParameter('projectId', i) as string;
+						let projectId = this.getNodeParameter('projectId', i) as string;
+						// Sanitize project ID
+						projectId = projectId.startsWith('projects/') ? projectId.split('/')[1] : projectId;
+
 						const newAccountName = this.getNodeParameter('newBillingAccountName', i) as string;
 						const endpoint = `projects/${projectId}/billingInfo`;
 						const body = {
