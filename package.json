@@ -1,6 +1,6 @@
 {
   "name": "@piayg/n8n-nodes-google-cloud-billing",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "n8n node to interact with Google Cloud Billing API",
   "license": "MIT",
   "homepage": "https://github.com/piayg/n8n-nodes-google-cloud-billing#readme",
