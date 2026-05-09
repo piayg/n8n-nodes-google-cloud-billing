@@ -9,7 +9,8 @@ export class GoogleCloudBillingOAuth2Api implements ICredentialType {
 		'oAuth2Api',
 	];
 	displayName = 'Google Cloud Billing OAuth2 API';
-	documentationUrl = 'google';
+	documentationUrl = 'https://cloud.google.com/billing/docs/apis';
+	icon = 'file:google-cloud-billing.svg';
 	properties: INodeProperties[] = [
 		{
 			displayName: 'Authorization URL',
