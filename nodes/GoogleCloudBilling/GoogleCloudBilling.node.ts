@@ -6,8 +6,9 @@ import type {
 	INodeExecutionData,
 	INodeType,
 	INodeTypeDescription,
+	JsonObject,
 } from 'n8n-workflow';
-import { NodeConnectionTypes, NodeOperationError } from 'n8n-workflow';
+import { NodeApiError, NodeConnectionTypes, NodeOperationError } from 'n8n-workflow';
 
 interface GoogleOAuth2Credentials extends IDataObject {
 	oauthTokenData?: {
@@ -115,10 +116,10 @@ export class GoogleCloudBilling implements INodeType {
 						action: 'Get project billing info',
 					},
 					{
-						name: 'List for Account',
+						name: 'Get Many',
 						value: 'listByAccount',
 						description: 'Lists the projects associated with a billing account',
-						action: 'List projects for billing account',
+						action: 'Get many projects',
 					},
 					{
 						name: 'Update Billing Info',
@@ -146,13 +147,13 @@ export class GoogleCloudBilling implements INodeType {
 						name: 'Get Many Services',
 						value: 'listServices',
 						description: 'List all public cloud services',
-						action: 'List catalog services',
+						action: 'Get many services',
 					},
 					{
 						name: 'Get Many SKUs',
 						value: 'listSkus',
 						description: 'List all publicly available SKUs for a given cloud service',
-						action: 'List catalog skus',
+						action: 'Get many skus',
 					},
 				],
 				default: 'listServices',
@@ -351,7 +352,7 @@ export class GoogleCloudBilling implements INodeType {
 					});
 					continue;
 				}
-				throw new NodeOperationError(this.getNode(), error as Error, { itemIndex: i });
+				throw new NodeApiError(this.getNode(), error as JsonObject, { itemIndex: i });
 			}
 		}
 
