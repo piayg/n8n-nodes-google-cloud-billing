@@ -65,7 +65,9 @@ export class Example implements INodeType {
 						// If the error thrown already contains the context property,
 						// only append the itemIndex
 						error.context.itemIndex = itemIndex;
-						throw error;
+						throw new NodeOperationError(this.getNode(), error, {
+							itemIndex,
+						});
 					}
 					throw new NodeOperationError(this.getNode(), error, {
 						itemIndex,
