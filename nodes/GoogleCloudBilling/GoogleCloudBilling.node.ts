@@ -268,25 +268,18 @@ export class GoogleCloudBilling implements INodeType {
 		}
 
 		// Initialize Standard OAuth2Client from google-auth-library
+		// We pass it via 'authClient' in options, which is the correct property for an AuthClient instance.
 		const authClient = new OAuth2Client();
 		authClient.setCredentials({ access_token: accessToken });
 
-		// The library internally expects an 'auth' object that has a .fetch() method in REST mode.
-		// By providing a manual wrapper, we satisfy both the TypeScript compiler and the runtime requirements.
-		const customAuth = {
-			fetch: authClient.fetch.bind(authClient),
-			getRequestHeaders: authClient.getRequestHeaders.bind(authClient),
-		};
-
+		// Configure the clients to use REST mode and the provided auth client
 		const clientOptions = {
 			fallback: true,
-			auth: customAuth as never, // Use 'never' or proper internal type to satisfy ClientOptions without using 'any'
+			authClient,
 		};
 
-		// eslint-disable-next-line @typescript-eslint/no-explicit-any
-		const billingClient = new CloudBillingClient(clientOptions as any);
-		// eslint-disable-next-line @typescript-eslint/no-explicit-any
-		const catalogClient = new CloudCatalogClient(clientOptions as any);
+		const billingClient = new CloudBillingClient(clientOptions);
+		const catalogClient = new CloudCatalogClient(clientOptions);
 
 		for (let i = 0; i < items.length; i++) {
 			try {
