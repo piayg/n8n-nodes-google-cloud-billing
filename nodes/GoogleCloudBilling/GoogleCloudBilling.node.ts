@@ -1,10 +1,11 @@
+import { CloudBillingClient } from '@google-cloud/billing';
 import {
 	IExecuteFunctions,
 	INodeExecutionData,
 	INodeType,
 	INodeTypeDescription,
+	NodeApiError,
 	NodeConnectionTypes,
-	NodeOperationError,
 } from 'n8n-workflow';
 
 export class GoogleCloudBilling implements INodeType {
@@ -70,22 +71,70 @@ export class GoogleCloudBilling implements INodeType {
 				],
 				default: 'getAll',
 			},
+			{
+				displayName: 'Billing Account Name or ID',
+				name: 'billingAccountName',
+				type: 'string',
+				default: '',
+				required: true,
+				displayOptions: {
+					show: {
+						resource: ['billingAccount'],
+						operation: ['get'],
+					},
+				},
+				description:
+					'The resource name of the billing account to retrieve. Format: billingAccounts/{ACCOUNT_ID}.',
+			},
 		],
 	};
 
 	async execute(this: IExecuteFunctions): Promise<INodeExecutionData[][]> {
 		const items = this.getInputData();
 		const returnData: INodeExecutionData[] = [];
+		const resource = this.getNodeParameter('resource', 0) as string;
+		const operation = this.getNodeParameter('operation', 0) as string;
+
+		// Get credentials for the first item (assuming same credentials for all items in this execution)
+		const credentials = await this.getCredentials('googleCloudBillingOAuth2Api');
+		// eslint-disable-next-line @typescript-eslint/no-explicit-any
+		const accessToken = (credentials as any).oauthTokenData?.access_token;
+
+		const client = new CloudBillingClient({
+			authClient: {
+				getRequestHeaders: async () => ({
+					Authorization: `Bearer ${accessToken}`,
+				}),
+				// eslint-disable-next-line @typescript-eslint/no-explicit-any
+			} as any,
+		});
 
 		for (let i = 0; i < items.length; i++) {
 			try {
-				// Placeholder for Task 4+ implementation
+				if (resource === 'billingAccount') {
+					if (operation === 'get') {
+						const name = this.getNodeParameter('billingAccountName', i) as string;
+						const [response] = await client.getBillingAccount({ name });
+						// eslint-disable-next-line @typescript-eslint/no-explicit-any
+						returnData.push({ json: response as any, pairedItem: { item: i } });
+					} else if (operation === 'getAll') {
+						const [accounts] = await client.listBillingAccounts();
+						// eslint-disable-next-line @typescript-eslint/no-explicit-any
+						const executionData = this.helpers.returnJsonArray(accounts as any);
+						for (const data of executionData) {
+							data.pairedItem = { item: i };
+						}
+						returnData.push(...executionData);
+					}
+				}
 			} catch (error) {
 				if (this.continueOnFail()) {
-					returnData.push({ json: this.getInputData(i)[0].json, error, pairedItem: i });
+					// eslint-disable-next-line @typescript-eslint/no-explicit-any
+					returnData.push({ json: { error: (error as any).message }, pairedItem: { item: i } });
 					continue;
 				}
-				throw new NodeOperationError(this.getNode(), error, { itemIndex: i });
+				// eslint-disable-next-line @typescript-eslint/no-explicit-any
+				throw new NodeApiError(this.getNode(), error as any, { itemIndex: i });
 			}
 		}
 

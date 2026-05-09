@@ -1,53 +1,48 @@
 {
-	"name": "n8n-nodes-google-cloud-billing",
-	"version": "0.1.0",
-	"description": "n8n node to interact with Google Cloud Billing API",
-	"license": "MIT",
-	"homepage": "https://github.com/maneejandev/n8n-nodes-google-cloud-billing#readme",
-	"keywords": [
-		"n8n-community-node-package"
-	],
-	"author": {
-		"name": "baslenvm",
-		"email": "8749620+baslenvm@users.noreply.github.com"
-	},
-	"repository": {
-		"type": "git",
-		"url": "https://github.com/maneejandev/n8n-nodes-google-cloud-billing.git"
-	},
-	"scripts": {
-		"build": "n8n-node build",
-		"build:watch": "tsc --watch",
-		"dev": "n8n-node dev",
-		"lint": "n8n-node lint",
-		"lint:fix": "n8n-node lint --fix",
-		"release": "n8n-node release",
-		"prepublishOnly": "n8n-node prerelease"
-	},
-	"files": [
-		"dist"
-	],
-	"n8n": {
-		"n8nNodesApiVersion": 1,
-		"strict": true,
-		"credentials": [
-			"dist/credentials/GoogleCloudBillingOAuth2Api.credentials.js"
-		],
-		"nodes": [
-			"dist/nodes/Example/Example.node.js"
-		]
-	},
-	"dependencies": {
-		"@google-cloud/billing": "^5.1.2"
-	},
-	"devDependencies": {
-		"@n8n/node-cli": "*",
-		"eslint": "9.32.0",
-		"prettier": "3.6.2",
-		"release-it": "^19.0.4",
-		"typescript": "5.9.2"
-	},
-	"peerDependencies": {
-		"n8n-workflow": "*"
-	}
+  "name": "@piayg/n8n-nodes-google-cloud-billing",
+  "version": "0.1.0",
+  "description": "n8n node to interact with Google Cloud Billing API",
+  "license": "MIT",
+  "homepage": "https://github.com/piayg/n8n-nodes-google-cloud-billing#readme",
+  "keywords": [
+  	"n8n-community-node-package"
+  ],
+  "author": {
+  	"name": "baslenvm",
+  	"email": "8749620+baslenvm@users.noreply.github.com"
+  },
+  "repository": {
+  	"type": "git",
+  	"url": "https://github.com/piayg/n8n-nodes-google-cloud-billing.git"
+  },
+  "scripts": {
+    "build": "n8n-node build",
+    "build:watch": "tsc --watch",
+    "dev": "n8n-node dev",
+    "lint": "n8n-node lint",
+    "lint:fix": "n8n-node lint --fix",
+    "release": "n8n-node release",
+    "prepublishOnly": "n8n-node prerelease"
+  },
+  "files": ["dist"],
+  "n8n": {
+    "n8nNodesApiVersion": 1,
+    "strict": false,
+    "credentials": [
+      "dist/credentials/GoogleCloudBillingOAuth2Api.credentials.js"
+    ],
+    "nodes": [
+      "dist/nodes/Example/Example.node.js",
+      "dist/nodes/GoogleCloudBilling/GoogleCloudBilling.node.js"
+    ]
+  },
+  "dependencies": { "@google-cloud/billing": "^5.1.2" },
+  "devDependencies": {
+    "@n8n/node-cli": "*",
+    "eslint": "9.32.0",
+    "prettier": "3.6.2",
+    "release-it": "^19.0.4",
+    "typescript": "5.9.2"
+  },
+  "peerDependencies": { "n8n-workflow": "*" }
 }
