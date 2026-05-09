@@ -1,4 +1,5 @@
-import { CloudBillingClient } from '@google-cloud/billing';
+import { CloudBillingClient, CloudCatalogClient } from '@google-cloud/billing';
+import { OAuth2Client } from 'google-auth-library';
 import {
 	IExecuteFunctions,
 	INodeExecutionData,
@@ -41,9 +42,19 @@ export class GoogleCloudBilling implements INodeType {
 						name: 'Billing Account',
 						value: 'billingAccount',
 					},
+					{
+						name: 'Catalog',
+						value: 'catalog',
+					},
+					{
+						name: 'Project',
+						value: 'project',
+					},
 				],
 				default: 'billingAccount',
 			},
+
+			// --- Billing Account Operations ---
 			{
 				displayName: 'Operation',
 				name: 'operation',
@@ -51,9 +62,7 @@ export class GoogleCloudBilling implements INodeType {
 				noDataExpression: true,
 				displayOptions: {
 					show: {
-						resource: [
-							'billingAccount',
-						],
+						resource: ['billingAccount'],
 					},
 				},
 				options: [
@@ -69,9 +78,81 @@ export class GoogleCloudBilling implements INodeType {
 						description: 'Retrieve many billing accounts',
 						action: 'Get many billing accounts',
 					},
+					{
+						name: 'Update',
+						value: 'update',
+						description: 'Update a billing account',
+						action: 'Update a billing account',
+					},
 				],
 				default: 'getAll',
 			},
+
+			// --- Project Operations ---
+			{
+				displayName: 'Operation',
+				name: 'operation',
+				type: 'options',
+				noDataExpression: true,
+				displayOptions: {
+					show: {
+						resource: ['project'],
+					},
+				},
+				options: [
+					{
+						name: 'Get Billing Info',
+						value: 'getBillingInfo',
+						description: 'Get the billing information for a project',
+						action: 'Get project billing info',
+					},
+					{
+						name: 'List for Account',
+						value: 'listByAccount',
+						description: 'Lists the projects associated with a billing account',
+						action: 'List projects for billing account',
+					},
+					{
+						name: 'Update Billing Info',
+						value: 'updateBillingInfo',
+						description: 'Update the billing information for a project',
+						action: 'Update project billing info',
+					},
+				],
+				default: 'getBillingInfo',
+			},
+
+			// --- Catalog Operations ---
+			{
+				displayName: 'Operation',
+				name: 'operation',
+				type: 'options',
+				noDataExpression: true,
+				displayOptions: {
+					show: {
+						resource: ['catalog'],
+					},
+				},
+				options: [
+					{
+						name: 'Get Many Services',
+						value: 'listServices',
+						description: 'List all public cloud services',
+						action: 'List catalog services',
+					},
+					{
+						name: 'Get Many SKUs',
+						value: 'listSkus',
+						description: 'List all publicly available SKUs for a given cloud service',
+						action: 'List catalog skus',
+					},
+				],
+				default: 'listServices',
+			},
+
+			// --- Parameters ---
+
+			// billingAccountName (used for billingAccount:get, billingAccount:update, project:listByAccount)
 			{
 				displayName: 'Billing Account Name or ID',
 				name: 'billingAccountName',
@@ -80,12 +161,86 @@ export class GoogleCloudBilling implements INodeType {
 				required: true,
 				displayOptions: {
 					show: {
-						resource: ['billingAccount'],
-						operation: ['get'],
+						resource: ['billingAccount', 'project'],
+						operation: ['get', 'update', 'listByAccount'],
 					},
 				},
 				description:
-					'The resource name of the billing account to retrieve. Format: billingAccounts/{ACCOUNT_ID}.',
+					'The resource name of the billing account. Format: billingAccounts/{ACCOUNT_ID}.',
+			},
+
+			// projectId (used for project:getBillingInfo, project:updateBillingInfo)
+			{
+				displayName: 'Project ID',
+				name: 'projectId',
+				type: 'string',
+				default: '',
+				required: true,
+				displayOptions: {
+					show: {
+						resource: ['project'],
+						operation: ['getBillingInfo', 'updateBillingInfo'],
+					},
+				},
+				description: 'The ID of the project',
+			},
+
+			// serviceName (used for catalog:listSkus)
+			{
+				displayName: 'Service Name',
+				name: 'serviceName',
+				type: 'string',
+				default: '',
+				required: true,
+				displayOptions: {
+					show: {
+						resource: ['catalog'],
+						operation: ['listSkus'],
+					},
+				},
+				description: 'The name of the service. Format: services/{SERVICE_ID}.',
+			},
+
+			// --- Update Fields ---
+
+			// billingAccount:update
+			{
+				displayName: 'Update Fields',
+				name: 'updateFields',
+				type: 'collection',
+				placeholder: 'Add Field',
+				default: {},
+				displayOptions: {
+					show: {
+						resource: ['billingAccount'],
+						operation: ['update'],
+					},
+				},
+				options: [
+					{
+						displayName: 'Display Name',
+						name: 'displayName',
+						type: 'string',
+						default: '',
+						description: 'The display name for the billing account',
+					},
+				],
+			},
+
+			// project:updateBillingInfo
+			{
+				displayName: 'New Billing Account Name',
+				name: 'newBillingAccountName',
+				type: 'string',
+				default: '',
+				displayOptions: {
+					show: {
+						resource: ['project'],
+						operation: ['updateBillingInfo'],
+					},
+				},
+				description:
+					'The name of the billing account to associate with the project. Format: billingAccounts/{ACCOUNT_ID}. To disassociate, use an empty string.',
 			},
 		],
 	};
@@ -93,10 +248,7 @@ export class GoogleCloudBilling implements INodeType {
 	async execute(this: IExecuteFunctions): Promise<INodeExecutionData[][]> {
 		const items = this.getInputData();
 		const returnData: INodeExecutionData[] = [];
-		const resource = this.getNodeParameter('resource', 0) as string;
-		const operation = this.getNodeParameter('operation', 0) as string;
 
-		// Get credentials for the first item (assuming same credentials for all items in this execution)
 		const credentials = await this.getCredentials('googleCloudBillingOAuth2Api');
 		// eslint-disable-next-line @typescript-eslint/no-explicit-any
 		const accessToken = (credentials as any).oauthTokenData?.access_token;
@@ -105,28 +257,89 @@ export class GoogleCloudBilling implements INodeType {
 			throw new NodeOperationError(this.getNode(), 'No access token found in credentials.');
 		}
 
-		const client = new CloudBillingClient({
-			fallback: true,
-			authClient: {
-				getRequestHeaders: async () => ({
-					Authorization: `Bearer ${accessToken}`,
-				}),
-				// eslint-disable-next-line @typescript-eslint/no-explicit-any
-			} as any,
-		});
+		// Initialize Standard OAuth2Client to bridge n8n token with Google SDK (works for both gRPC and REST)
+		const authClient = new OAuth2Client();
+		authClient.setCredentials({ access_token: accessToken });
+
+		// eslint-disable-next-line @typescript-eslint/no-explicit-any
+		const billingClient = new CloudBillingClient({ auth: authClient as any });
+		// eslint-disable-next-line @typescript-eslint/no-explicit-any
+		const catalogClient = new CloudCatalogClient({ auth: authClient as any });
 
 		for (let i = 0; i < items.length; i++) {
 			try {
+				const resource = this.getNodeParameter('resource', i) as string;
+				const operation = this.getNodeParameter('operation', i) as string;
+
 				if (resource === 'billingAccount') {
 					if (operation === 'get') {
 						const name = this.getNodeParameter('billingAccountName', i) as string;
-						const [response] = await client.getBillingAccount({ name });
+						const [response] = await billingClient.getBillingAccount({ name });
 						// eslint-disable-next-line @typescript-eslint/no-explicit-any
 						returnData.push({ json: response as any, pairedItem: { item: i } });
 					} else if (operation === 'getAll') {
-						const [accounts] = await client.listBillingAccounts();
+						const [accounts] = await billingClient.listBillingAccounts();
 						// eslint-disable-next-line @typescript-eslint/no-explicit-any
 						const executionData = this.helpers.returnJsonArray(accounts as any);
+						for (const data of executionData) {
+							data.pairedItem = { item: i };
+						}
+						returnData.push(...executionData);
+					} else if (operation === 'update') {
+						const name = this.getNodeParameter('billingAccountName', i) as string;
+						// eslint-disable-next-line @typescript-eslint/no-explicit-any
+						const updateFields = this.getNodeParameter('updateFields', i) as any;
+						const [response] = await (billingClient.updateBillingAccount({
+							name,
+							account: updateFields,
+							// eslint-disable-next-line @typescript-eslint/no-explicit-any
+						}) as any);
+						// eslint-disable-next-line @typescript-eslint/no-explicit-any
+						returnData.push({ json: response as any, pairedItem: { item: i } });
+					}
+				} else if (resource === 'project') {
+					if (operation === 'getBillingInfo') {
+						const projectId = this.getNodeParameter('projectId', i) as string;
+						const name = `projects/${projectId}`;
+						const [response] = await billingClient.getProjectBillingInfo({ name });
+						// eslint-disable-next-line @typescript-eslint/no-explicit-any
+						returnData.push({ json: response as any, pairedItem: { item: i } });
+					} else if (operation === 'listByAccount') {
+						const name = this.getNodeParameter('billingAccountName', i) as string;
+						const [projects] = await billingClient.listProjectBillingInfo({ name });
+						// eslint-disable-next-line @typescript-eslint/no-explicit-any
+						const executionData = this.helpers.returnJsonArray(projects as any);
+						for (const data of executionData) {
+							data.pairedItem = { item: i };
+						}
+						returnData.push(...executionData);
+					} else if (operation === 'updateBillingInfo') {
+						const projectId = this.getNodeParameter('projectId', i) as string;
+						const newAccountName = this.getNodeParameter('newBillingAccountName', i) as string;
+						const name = `projects/${projectId}`;
+						const [response] = await billingClient.updateProjectBillingInfo({
+							name,
+							projectBillingInfo: {
+								billingAccountName: newAccountName,
+							},
+						});
+						// eslint-disable-next-line @typescript-eslint/no-explicit-any
+						returnData.push({ json: response as any, pairedItem: { item: i } });
+					}
+				} else if (resource === 'catalog') {
+					if (operation === 'listServices') {
+						const [services] = await catalogClient.listServices();
+						// eslint-disable-next-line @typescript-eslint/no-explicit-any
+						const executionData = this.helpers.returnJsonArray(services as any);
+						for (const data of executionData) {
+							data.pairedItem = { item: i };
+						}
+						returnData.push(...executionData);
+					} else if (operation === 'listSkus') {
+						const parent = this.getNodeParameter('serviceName', i) as string;
+						const [skus] = await catalogClient.listSkus({ parent });
+						// eslint-disable-next-line @typescript-eslint/no-explicit-any
+						const executionData = this.helpers.returnJsonArray(skus as any);
 						for (const data of executionData) {
 							data.pairedItem = { item: i };
 						}
