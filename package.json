@@ -13,7 +13,7 @@
   },
   "repository": {
   	"type": "git",
-  	"url": "https://github.com/piayg/n8n-nodes-google-cloud-billing.git"
+  	"url": "git+https://github.com/piayg/n8n-nodes-google-cloud-billing.git"
   },
   "scripts": {
     "build": "n8n-node build",
