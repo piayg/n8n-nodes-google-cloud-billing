@@ -1,0 +1,45 @@
+import {
+	ICredentialType,
+	INodeProperties,
+} from 'n8n-workflow';
+
+export class GoogleCloudBillingOAuth2Api implements ICredentialType {
+	name = 'googleCloudBillingOAuth2Api';
+	extends = [
+		'oAuth2Api',
+	];
+	displayName = 'Google Cloud Billing OAuth2 API';
+	documentationUrl = 'google';
+	properties: INodeProperties[] = [
+		{
+			displayName: 'Authorization URL',
+			name: 'authUrl',
+			type: 'hidden',
+			default: 'https://accounts.google.com/o/oauth2/v2/auth',
+		},
+		{
+			displayName: 'Access Token URL',
+			name: 'accessTokenUrl',
+			type: 'hidden',
+			default: 'https://oauth2.googleapis.com/token',
+		},
+		{
+			displayName: 'Scope',
+			name: 'scope',
+			type: 'hidden',
+			default: 'https://www.googleapis.com/auth/cloud-billing.readonly https://www.googleapis.com/auth/cloud-platform.read-only',
+		},
+		{
+			displayName: 'Auth URI Query Parameters',
+			name: 'authQueryParameters',
+			type: 'hidden',
+			default: 'access_type=offline&prompt=consent',
+		},
+		{
+			displayName: 'Authentication',
+			name: 'authentication',
+			type: 'hidden',
+			default: 'body',
+		},
+	];
+}
