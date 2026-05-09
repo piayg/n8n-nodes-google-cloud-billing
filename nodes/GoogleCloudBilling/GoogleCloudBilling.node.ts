@@ -1,14 +1,22 @@
-import { CloudBillingClient, CloudCatalogClient } from '@google-cloud/billing';
+import { CloudBillingClient, CloudCatalogClient, protos } from '@google-cloud/billing';
 import { OAuth2Client } from 'google-auth-library';
-import {
+import type {
+	IDataObject,
 	IExecuteFunctions,
 	INodeExecutionData,
 	INodeType,
 	INodeTypeDescription,
-	NodeApiError,
-	NodeConnectionTypes,
-	NodeOperationError,
 } from 'n8n-workflow';
+import { NodeConnectionTypes, NodeOperationError } from 'n8n-workflow';
+
+interface GoogleOAuth2Credentials extends IDataObject {
+	oauthTokenData?: {
+		access_token?: string;
+		refresh_token?: string;
+		expires_in?: number;
+		token_type?: string;
+	};
+}
 
 export class GoogleCloudBilling implements INodeType {
 	description: INodeTypeDescription = {
@@ -249,9 +257,10 @@ export class GoogleCloudBilling implements INodeType {
 		const items = this.getInputData();
 		const returnData: INodeExecutionData[] = [];
 
-		const credentials = await this.getCredentials('googleCloudBillingOAuth2Api');
-		// eslint-disable-next-line @typescript-eslint/no-explicit-any
-		const accessToken = (credentials as any).oauthTokenData?.access_token;
+		const credentials = (await this.getCredentials(
+			'googleCloudBillingOAuth2Api',
+		)) as GoogleOAuth2Credentials;
+		const accessToken = credentials.oauthTokenData?.access_token;
 
 		if (!accessToken) {
 			throw new NodeOperationError(this.getNode(), 'No access token found in credentials.');
@@ -261,10 +270,8 @@ export class GoogleCloudBilling implements INodeType {
 		const authClient = new OAuth2Client();
 		authClient.setCredentials({ access_token: accessToken });
 
-		// eslint-disable-next-line @typescript-eslint/no-explicit-any
-		const billingClient = new CloudBillingClient({ auth: authClient as any });
-		// eslint-disable-next-line @typescript-eslint/no-explicit-any
-		const catalogClient = new CloudCatalogClient({ auth: authClient as any });
+		const billingClient = new CloudBillingClient({ authClient });
+		const catalogClient = new CloudCatalogClient({ authClient });
 
 		for (let i = 0; i < items.length; i++) {
 			try {
@@ -275,40 +282,33 @@ export class GoogleCloudBilling implements INodeType {
 					if (operation === 'get') {
 						const name = this.getNodeParameter('billingAccountName', i) as string;
 						const [response] = await billingClient.getBillingAccount({ name });
-						// eslint-disable-next-line @typescript-eslint/no-explicit-any
-						returnData.push({ json: response as any, pairedItem: { item: i } });
+						returnData.push({ json: response as IDataObject, pairedItem: { item: i } });
 					} else if (operation === 'getAll') {
 						const [accounts] = await billingClient.listBillingAccounts();
-						// eslint-disable-next-line @typescript-eslint/no-explicit-any
-						const executionData = this.helpers.returnJsonArray(accounts as any);
+						const executionData = this.helpers.returnJsonArray(accounts as IDataObject[]);
 						for (const data of executionData) {
 							data.pairedItem = { item: i };
 						}
 						returnData.push(...executionData);
 					} else if (operation === 'update') {
 						const name = this.getNodeParameter('billingAccountName', i) as string;
-						// eslint-disable-next-line @typescript-eslint/no-explicit-any
-						const updateFields = this.getNodeParameter('updateFields', i) as any;
-						const [response] = await (billingClient.updateBillingAccount({
+						const updateFields = this.getNodeParameter('updateFields', i) as IDataObject;
+						const [response] = await billingClient.updateBillingAccount({
 							name,
-							account: updateFields,
-							// eslint-disable-next-line @typescript-eslint/no-explicit-any
-						}) as any);
-						// eslint-disable-next-line @typescript-eslint/no-explicit-any
-						returnData.push({ json: response as any, pairedItem: { item: i } });
+							account: updateFields as protos.google.cloud.billing.v1.IBillingAccount,
+						});
+						returnData.push({ json: response as IDataObject, pairedItem: { item: i } });
 					}
 				} else if (resource === 'project') {
 					if (operation === 'getBillingInfo') {
 						const projectId = this.getNodeParameter('projectId', i) as string;
 						const name = `projects/${projectId}`;
 						const [response] = await billingClient.getProjectBillingInfo({ name });
-						// eslint-disable-next-line @typescript-eslint/no-explicit-any
-						returnData.push({ json: response as any, pairedItem: { item: i } });
+						returnData.push({ json: response as IDataObject, pairedItem: { item: i } });
 					} else if (operation === 'listByAccount') {
 						const name = this.getNodeParameter('billingAccountName', i) as string;
 						const [projects] = await billingClient.listProjectBillingInfo({ name });
-						// eslint-disable-next-line @typescript-eslint/no-explicit-any
-						const executionData = this.helpers.returnJsonArray(projects as any);
+						const executionData = this.helpers.returnJsonArray(projects as IDataObject[]);
 						for (const data of executionData) {
 							data.pairedItem = { item: i };
 						}
@@ -323,14 +323,12 @@ export class GoogleCloudBilling implements INodeType {
 								billingAccountName: newAccountName,
 							},
 						});
-						// eslint-disable-next-line @typescript-eslint/no-explicit-any
-						returnData.push({ json: response as any, pairedItem: { item: i } });
+						returnData.push({ json: response as IDataObject, pairedItem: { item: i } });
 					}
 				} else if (resource === 'catalog') {
 					if (operation === 'listServices') {
 						const [services] = await catalogClient.listServices();
-						// eslint-disable-next-line @typescript-eslint/no-explicit-any
-						const executionData = this.helpers.returnJsonArray(services as any);
+						const executionData = this.helpers.returnJsonArray(services as IDataObject[]);
 						for (const data of executionData) {
 							data.pairedItem = { item: i };
 						}
@@ -338,8 +336,7 @@ export class GoogleCloudBilling implements INodeType {
 					} else if (operation === 'listSkus') {
 						const parent = this.getNodeParameter('serviceName', i) as string;
 						const [skus] = await catalogClient.listSkus({ parent });
-						// eslint-disable-next-line @typescript-eslint/no-explicit-any
-						const executionData = this.helpers.returnJsonArray(skus as any);
+						const executionData = this.helpers.returnJsonArray(skus as IDataObject[]);
 						for (const data of executionData) {
 							data.pairedItem = { item: i };
 						}
@@ -348,12 +345,13 @@ export class GoogleCloudBilling implements INodeType {
 				}
 			} catch (error) {
 				if (this.continueOnFail()) {
-					// eslint-disable-next-line @typescript-eslint/no-explicit-any
-					returnData.push({ json: { error: (error as any).message }, pairedItem: { item: i } });
+					returnData.push({
+						json: { error: (error as Error).message },
+						pairedItem: { item: i },
+					});
 					continue;
 				}
-				// eslint-disable-next-line @typescript-eslint/no-explicit-any
-				throw new NodeApiError(this.getNode(), error as any, { itemIndex: i });
+				throw new NodeOperationError(this.getNode(), error as Error, { itemIndex: i });
 			}
 		}
 
