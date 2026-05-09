@@ -1,4 +1,5 @@
 import { CloudBillingClient, CloudCatalogClient, protos } from '@google-cloud/billing';
+import { OAuth2Client } from 'google-auth-library';
 import type {
 	IDataObject,
 	IExecuteFunctions,
@@ -7,7 +8,7 @@ import type {
 	INodeTypeDescription,
 	JsonObject,
 } from 'n8n-workflow';
-import { NodeConnectionTypes, NodeOperationError, NodeApiError } from 'n8n-workflow';
+import { NodeConnectionTypes, NodeOperationError } from 'n8n-workflow';
 
 interface GoogleOAuth2Credentials extends IDataObject {
 	oauthTokenData?: {
@@ -266,14 +267,14 @@ export class GoogleCloudBilling implements INodeType {
 			throw new NodeOperationError(this.getNode(), 'No access token found in credentials.');
 		}
 
-		// Use the CloudBillingClient with REST fallback to simplify auth and avoid gRPC dependency issues in some environments
+		// Initialize Standard OAuth2Client from google-auth-library
+		// This handles auth for both gRPC and REST. We use authClient property in options to avoid type mismatches.
+		const authClient = new OAuth2Client();
+		authClient.setCredentials({ access_token: accessToken });
+
 		const clientOptions = {
 			fallback: true,
-			authClient: {
-				getRequestHeaders: async () => ({
-					Authorization: `Bearer ${accessToken}`,
-				}),
-			} as any,
+			authClient,
 		};
 
 		const billingClient = new CloudBillingClient(clientOptions);
@@ -357,7 +358,7 @@ export class GoogleCloudBilling implements INodeType {
 					});
 					continue;
 				}
-				throw new NodeApiError(this.getNode(), error as JsonObject, { itemIndex: i });
+				throw new NodeOperationError(this.getNode(), error as JsonObject, { itemIndex: i });
 			}
 		}
 
