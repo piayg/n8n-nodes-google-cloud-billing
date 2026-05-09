@@ -41,9 +41,6 @@
       "dist/nodes/GoogleCloudBilling/GoogleCloudBilling.node.js"
     ]
   },
-  "dependencies": {
-    "@google-cloud/billing": "^5.1.2"
-  },
   "devDependencies": {
     "@n8n/node-cli": "*",
     "eslint": "9.32.0",

@@ -1,23 +1,13 @@
-import { CloudBillingClient, CloudCatalogClient, protos } from '@google-cloud/billing';
-import { OAuth2Client } from 'google-auth-library';
 import type {
 	IDataObject,
 	IExecuteFunctions,
 	INodeExecutionData,
 	INodeType,
 	INodeTypeDescription,
-	JsonObject,
 } from 'n8n-workflow';
 import { NodeConnectionTypes, NodeOperationError } from 'n8n-workflow';
 
-interface GoogleOAuth2Credentials extends IDataObject {
-	oauthTokenData?: {
-		access_token?: string;
-		refresh_token?: string;
-		expires_in?: number;
-		token_type?: string;
-	};
-}
+import { googleApiRequest, googleApiRequestAllItems } from './GenericFunctions';
 
 export class GoogleCloudBilling implements INodeType {
 	description: INodeTypeDescription = {
@@ -258,29 +248,6 @@ export class GoogleCloudBilling implements INodeType {
 		const items = this.getInputData();
 		const returnData: INodeExecutionData[] = [];
 
-		const credentials = (await this.getCredentials(
-			'googleCloudBillingOAuth2Api',
-		)) as GoogleOAuth2Credentials;
-		const accessToken = credentials.oauthTokenData?.access_token;
-
-		if (!accessToken) {
-			throw new NodeOperationError(this.getNode(), 'No access token found in credentials.');
-		}
-
-		// Initialize Standard OAuth2Client from google-auth-library
-		// We pass it via 'authClient' in options, which is the correct property for an AuthClient instance.
-		const authClient = new OAuth2Client();
-		authClient.setCredentials({ access_token: accessToken });
-
-		// Configure the clients to use REST mode and the provided auth client
-		const clientOptions = {
-			fallback: true,
-			authClient,
-		};
-
-		const billingClient = new CloudBillingClient(clientOptions);
-		const catalogClient = new CloudCatalogClient(clientOptions);
-
 		for (let i = 0; i < items.length; i++) {
 			try {
 				const resource = this.getNodeParameter('resource', i) as string;
@@ -289,11 +256,16 @@ export class GoogleCloudBilling implements INodeType {
 				if (resource === 'billingAccount') {
 					if (operation === 'get') {
 						const name = this.getNodeParameter('billingAccountName', i) as string;
-						const [response] = await billingClient.getBillingAccount({ name });
-						returnData.push({ json: response as IDataObject, pairedItem: { item: i } });
+						const responseData = await googleApiRequest.call(this, 'GET', name);
+						returnData.push({ json: responseData as IDataObject, pairedItem: { item: i } });
 					} else if (operation === 'getAll') {
-						const [accounts] = await billingClient.listBillingAccounts();
-						const executionData = this.helpers.returnJsonArray(accounts as IDataObject[]);
+						const accounts = await googleApiRequestAllItems.call(
+							this,
+							'billingAccounts',
+							'GET',
+							'billingAccounts',
+						);
+						const executionData = this.helpers.returnJsonArray(accounts);
 						for (const data of executionData) {
 							data.pairedItem = { item: i };
 						}
@@ -301,22 +273,25 @@ export class GoogleCloudBilling implements INodeType {
 					} else if (operation === 'update') {
 						const name = this.getNodeParameter('billingAccountName', i) as string;
 						const updateFields = this.getNodeParameter('updateFields', i) as IDataObject;
-						const [response] = await billingClient.updateBillingAccount({
-							name,
-							account: updateFields as protos.google.cloud.billing.v1.IBillingAccount,
-						});
-						returnData.push({ json: response as IDataObject, pairedItem: { item: i } });
+						const responseData = await googleApiRequest.call(this, 'PATCH', name, updateFields);
+						returnData.push({ json: responseData as IDataObject, pairedItem: { item: i } });
 					}
 				} else if (resource === 'project') {
 					if (operation === 'getBillingInfo') {
 						const projectId = this.getNodeParameter('projectId', i) as string;
-						const name = `projects/${projectId}`;
-						const [response] = await billingClient.getProjectBillingInfo({ name });
-						returnData.push({ json: response as IDataObject, pairedItem: { item: i } });
+						const endpoint = `projects/${projectId}/billingInfo`;
+						const responseData = await googleApiRequest.call(this, 'GET', endpoint);
+						returnData.push({ json: responseData as IDataObject, pairedItem: { item: i } });
 					} else if (operation === 'listByAccount') {
 						const name = this.getNodeParameter('billingAccountName', i) as string;
-						const [projects] = await billingClient.listProjectBillingInfo({ name });
-						const executionData = this.helpers.returnJsonArray(projects as IDataObject[]);
+						const endpoint = `${name}/projects`;
+						const projects = await googleApiRequestAllItems.call(
+							this,
+							'projectBillingInfo',
+							'GET',
+							endpoint,
+						);
+						const executionData = this.helpers.returnJsonArray(projects);
 						for (const data of executionData) {
 							data.pairedItem = { item: i };
 						}
@@ -324,27 +299,26 @@ export class GoogleCloudBilling implements INodeType {
 					} else if (operation === 'updateBillingInfo') {
 						const projectId = this.getNodeParameter('projectId', i) as string;
 						const newAccountName = this.getNodeParameter('newBillingAccountName', i) as string;
-						const name = `projects/${projectId}`;
-						const [response] = await billingClient.updateProjectBillingInfo({
-							name,
-							projectBillingInfo: {
-								billingAccountName: newAccountName,
-							},
-						});
-						returnData.push({ json: response as IDataObject, pairedItem: { item: i } });
+						const endpoint = `projects/${projectId}/billingInfo`;
+						const body = {
+							billingAccountName: newAccountName,
+						};
+						const responseData = await googleApiRequest.call(this, 'PUT', endpoint, body);
+						returnData.push({ json: responseData as IDataObject, pairedItem: { item: i } });
 					}
 				} else if (resource === 'catalog') {
 					if (operation === 'listServices') {
-						const [services] = await catalogClient.listServices();
-						const executionData = this.helpers.returnJsonArray(services as IDataObject[]);
+						const services = await googleApiRequestAllItems.call(this, 'services', 'GET', 'services');
+						const executionData = this.helpers.returnJsonArray(services);
 						for (const data of executionData) {
 							data.pairedItem = { item: i };
 						}
 						returnData.push(...executionData);
 					} else if (operation === 'listSkus') {
 						const parent = this.getNodeParameter('serviceName', i) as string;
-						const [skus] = await catalogClient.listSkus({ parent });
-						const executionData = this.helpers.returnJsonArray(skus as IDataObject[]);
+						const endpoint = `${parent}/skus`;
+						const skus = await googleApiRequestAllItems.call(this, 'skus', 'GET', endpoint);
+						const executionData = this.helpers.returnJsonArray(skus);
 						for (const data of executionData) {
 							data.pairedItem = { item: i };
 						}
@@ -359,7 +333,7 @@ export class GoogleCloudBilling implements INodeType {
 					});
 					continue;
 				}
-				throw new NodeOperationError(this.getNode(), error as JsonObject, { itemIndex: i });
+				throw new NodeOperationError(this.getNode(), error as Error, { itemIndex: i });
 			}
 		}
 
