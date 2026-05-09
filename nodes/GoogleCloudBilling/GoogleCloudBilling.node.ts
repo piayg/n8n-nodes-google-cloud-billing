@@ -6,6 +6,7 @@ import {
 	INodeTypeDescription,
 	NodeApiError,
 	NodeConnectionTypes,
+	NodeOperationError,
 } from 'n8n-workflow';
 
 export class GoogleCloudBilling implements INodeType {
@@ -100,7 +101,12 @@ export class GoogleCloudBilling implements INodeType {
 		// eslint-disable-next-line @typescript-eslint/no-explicit-any
 		const accessToken = (credentials as any).oauthTokenData?.access_token;
 
+		if (!accessToken) {
+			throw new NodeOperationError(this.getNode(), 'No access token found in credentials.');
+		}
+
 		const client = new CloudBillingClient({
+			fallback: true,
 			authClient: {
 				getRequestHeaders: async () => ({
 					Authorization: `Bearer ${accessToken}`,
