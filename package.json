@@ -1,19 +1,19 @@
 {
   "name": "@piayg/n8n-nodes-google-cloud-billing",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "n8n node to interact with Google Cloud Billing API",
   "license": "MIT",
   "homepage": "https://github.com/piayg/n8n-nodes-google-cloud-billing#readme",
   "keywords": [
-  	"n8n-community-node-package"
+    "n8n-community-node-package"
   ],
   "author": {
-  	"name": "baslenvm",
-  	"email": "8749620+baslenvm@users.noreply.github.com"
+    "name": "baslenvm",
+    "email": "8749620+baslenvm@users.noreply.github.com"
   },
   "repository": {
-  	"type": "git",
-  	"url": "git+https://github.com/piayg/n8n-nodes-google-cloud-billing.git"
+    "type": "git",
+    "url": "git+https://github.com/piayg/n8n-nodes-google-cloud-billing.git"
   },
   "scripts": {
     "build": "n8n-node build",
@@ -27,7 +27,9 @@
   "publishConfig": {
     "access": "public"
   },
-  "files": ["dist"],
+  "files": [
+    "dist"
+  ],
   "n8n": {
     "n8nNodesApiVersion": 1,
     "strict": false,
@@ -39,7 +41,9 @@
       "dist/nodes/GoogleCloudBilling/GoogleCloudBilling.node.js"
     ]
   },
-  "dependencies": { "@google-cloud/billing": "^5.1.2" },
+  "dependencies": {
+    "@google-cloud/billing": "^5.1.2"
+  },
   "devDependencies": {
     "@n8n/node-cli": "*",
     "eslint": "9.32.0",
@@ -47,5 +51,7 @@
     "release-it": "^19.0.4",
     "typescript": "5.9.2"
   },
-  "peerDependencies": { "n8n-workflow": "*" }
+  "peerDependencies": {
+    "n8n-workflow": "*"
+  }
 }
